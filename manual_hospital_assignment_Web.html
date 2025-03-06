@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accident Detection And Hospital Assignment Status</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 20px;
+            background-color: #f3f1ea; /* Light beige background */
+            color: #5e4b3c; /* Dark brown text */
+            line-height: 1.6;
+        }
+
+        h1 {
+            text-align: center;
+            color: #6f4f35; /* Warm dark brown */
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #faf0e6; /* Light sand color */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 14px 20px;
+            text-align: left;
+            border-bottom: 1px solid #d8c1a5; /* Light brown border */
+        }
+
+        th {
+            background-color: #6f4f35; /* Warm dark brown header */
+            color: #fff; /* White text for contrast */
+            font-weight: bold;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f4e1c1; /* Light brown for alternating rows */
+        }
+
+        tr:hover {
+            background-color: #e9d0a4; /* Light yellowish brown for hover */
+        }
+
+        td {
+            vertical-align: middle;
+        }
+
+        #last-updated {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #7f5c3b; /* Medium brown */
+        }
+
+        .checkbox-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .checkbox-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        input[type="radio"] {
+            transform: scale(1.2);
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        @media screen and (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            th, td {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<h1>Accident Detection And Hospital Assignment Status</h1>
+<div id="last-updated">Last updated: Never</div>
+<table>
+    <thead>
+    <tr>
+        <th>User ID</th>
+        <th>User Name</th>
+        <th>User Age</th>
+        <th>User Contact</th>
+        <th>Parent Contact</th>
+        <th>User Latitude</th>
+        <th>User Longitude</th>
+        <th>Location</th> <!-- New column -->
+        <th>Accident Detected</th>
+        <th>Verified Hospitals</th>
+        <th>Assigned Hospital</th>
+    </tr>
+    </thead>
+    <tbody id="data-table">
+    <tr>
+        <td colspan="11" style="text-align:center;">Loading...</td>
+    </tr>
+    </tbody>
+</table>
+
+<script>
+    function fetchData() {
+        fetch('manual_hospital_assignment.php')
+            .then(response => response.text()) // Temporarily check raw response
+            .then(text => {
+                try {
+                    const data = JSON.parse(text);
+                    updateTable(data);
+                    updateLastUpdatedTime();
+                } catch (error) {
+                    console.error('Invalid JSON:', text);
+                }
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }
+
+    function updateTable(data) {
+        const tableBody = document.getElementById('data-table');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+        if (data.length === 0) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 11; // Updated for new column count
+            cell.style.textAlign = 'center';
+            cell.textContent = 'No data available';
+            row.appendChild(cell);
+            tableBody.appendChild(row);
+            return;
+        }
+
+        data.forEach(user => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${user.id || 'N/A'}</td>
+                <td>${user.name || 'N/A'}</td>
+                <td>${user.age || 'N/A'}</td>
+                <td>${user.contact_no || 'N/A'}</td>
+                <td>${user.parent_contact || 'N/A'}</td>
+                <td>${user.latitude || 'N/A'}</td>
+                <td>${user.longitude || 'N/A'}</td>
+                <td>${renderLocationLink(user.latitude, user.longitude)}</td>
+                <td>${user.accident_detected_flag == 1 ? 'Yes' : 'No'}</td>
+                <td>${renderVerifiedHospitals(user.verified_hospitals, user.id, user.accident_detected_flag)}</td>
+                <td>${renderAssignedHospital(user.assigned_hospital)}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function renderLocationLink(latitude, longitude) {
+        if (!latitude || !longitude) {
+            return 'N/A';
+        }
+        return `<a href="https://www.google.com/maps?q=${latitude},${longitude}" target="_blank">View Location</a>`;
+    }
+
+    function renderVerifiedHospitals(hospitals, userId, accidentFlag) {
+        if (!hospitals || hospitals.length === 0) {
+            return 'No verified hospitals';
+        }
+
+        const list = document.createElement('ul');
+        list.className = 'checkbox-list';
+
+        hospitals.forEach(hospital => {
+            const listItem = document.createElement('li');
+            listItem.innerHTML = `
+                <span>${hospital.name} (Contact: ${hospital.contact || 'N/A'})</span>
+                <input type="radio" name="hospital-${userId}" value="${hospital.hospital_id}"
+                onchange="assignHospital('${hospital.hospital_id}', '${userId}')" ${accidentFlag == 0 ? 'disabled' : ''}>
+            `;
+            list.appendChild(listItem);
+        });
+
+        return list.outerHTML;
+    }
+
+    function renderAssignedHospital(assignedHospital) {
+        if (!assignedHospital) {
+            return 'No hospital assigned';
+        }
+
+        return `
+            ${assignedHospital.name || 'N/A'}<br>
+            Contact: ${assignedHospital.contact || 'N/A'}
+        `;
+    }
+
+    function updateLastUpdatedTime() {
+        const now = new Date();
+        const lastUpdatedDiv = document.getElementById('last-updated');
+        lastUpdatedDiv.textContent = `Last updated: ${now.toLocaleString()}`;
+    }
+
+    function assignHospital(hospitalId, userId) {
+        const selectedRow = document.querySelector(`input[name="hospital-${userId}"][value="${hospitalId}"]`).closest('tr');
+        const userDetails = {
+            user_id: userId,
+            user_name: selectedRow.cells[1].textContent.trim(),
+            user_age: selectedRow.cells[2].textContent.trim(),
+            user_contact_no: selectedRow.cells[3].textContent.trim(),
+            user_parent_contact_no: selectedRow.cells[4].textContent.trim(),
+            user_latitude: selectedRow.cells[5].textContent.trim(),
+            user_longitude: selectedRow.cells[6].textContent.trim(),
+            send_request_flag: 1,
+            accident_detected_flag: selectedRow.cells[7].textContent.trim() === 'Yes' ? 1 : 0,
+            hospital_id: hospitalId
+        };
+
+        fetch('assign_hospital.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(userDetails)
+        })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Hospital assigned successfully!');
+                fetchData(); // Refresh data
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    setInterval(fetchData, 10000);
+    fetchData();
+</script>
+</body>
+</html>
